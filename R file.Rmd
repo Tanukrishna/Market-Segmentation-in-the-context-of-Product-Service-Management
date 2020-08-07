@@ -1,0 +1,293 @@
+
+Loading the Data Set 
+
+```{r}
+setwd("D:\\BABI\\Advanced_Statistics\\Dataset")
+myfactordata = read.csv("Factor-Hair-Revised.csv", header = TRUE)
+```
+
+Lets do some exploratary Data Analysis
+
+
+```{r}
+head(myfactordata)
+names(myfactordata)
+dim(myfactordata)
+class(myfactordata)
+str(myfactordata)
+summary(myfactordata)
+```
+
+#**Add some inference from above exploratary Data Analysis**
+Lets Remove the First Column - **"ID"** as its a categorical variabel though it is nominal in nature
+
+
+```{r}
+myfactordata = myfactordata[,-1]
+names(myfactordata)
+attach(myfactordata)
+```
+
+Lets plot the **Boxplot** for each variable to check wheather there are any outliers
+
+```{r}
+boxplot(myfactordata, col = "light blue")
+```
+
+We observe that there are Outlires in few of the Variables below:
+
+* Ecommerce - Outliers at the Higher side
+* SalesforceImage - Outliers at the Higher side
+* Order & Billing - Outliers at both Low and Higher side
+* Deliver Speed - Outliers at the Lower side
+
+We could infer that there are instances where Order&Billing and DeliverySpeed have even very low values which is good to see.
+
+```{r}
+hist(myfactordata$Satisfaction, col = "Light Blue")
+```
+
+#**write some inference or details about the Histogram, plot for other variables as well ...**
+
+Lets Load the required libraries before we proceed further ... 
+```{r}
+library(psych)
+library(Amelia)
+library(corrplot)
+library(ppcor)
+```
+
+Lets check if there are any missing Variabels?
+
+```{r}
+missmap(myfactordata, col = c('red','black'),y.cex=0.5,x.cex=0.5)
+```
+
+As per the missing map ploted it is cleaar that there no missing data
+
+Our end goal is to build a good Muliple Linear Regression model.
+However for any Linear regression model to predict with high accuracy, 
+it is important that the Indidependent variabels do not have correlation between each other and have high correlation with the Dependent Variable only.
+
+In our dataset, Satisfaction is Dependent Variabel or Response Variable and rest of the variables are Indipendent Variable.
+
+So, before we proceed, we need to confirm if there are any multicollinearity issue betwen the Indipendent Variables. 
+For example, in case Salary is dependent variable exlined by 2 indipendent variable Age and explerince, both Age and experince by itself have very high correlation, so they fight with each other in trying to explain the dependent variable salary and eventually both have lesser explanatory power.
+
+
+We shall run cor and corrplot to check the correlation between the independent variabel
+
+```{r}
+factordatamatrix = cor(myfactordata)
+corrplot(factordatamatrix, method = "number")
+```
+
+Its clear from the plot that, there are high correlation between few of the Independent variables and it would impact the over all significance of the model built.
+
+1. SalesForceImage and Ecommerce are highly correlated
+2. WartyClaim and TechSupport are highly correlated
+3. DelSpeed and Complaint Resolution are highly correlated
+4. At the sametime even OrderBilling and Complain Resolution also are highly correlated
+5. On top of it OrdBilling and Delivery Speed are highly correlated.
+
+As there are correlation between one Independent Variable with more than one independent Variable, there is a multicollinearity issue with dataset.
+
+Just to double confirm the multicollinearity, lets even check the p-value of the correlation to know how significat the correlations are.
+```{r}
+pcor(myfactordata,method = "pearson")
+```
+It is evidet from the P-Values of the Correlated Variabel that there is significant Correlation, and hence it is sure we have multicollinearity issue.
+
+
+Before we run an MLR, we shall run Linear Regression on each of the Independent Varaible to see which has highest explanatory power over teh dependent varaibel - **Satisfaction**
+
+```{r}
+LinearModel_ProdQual = lm(Satisfaction~ProdQual)
+print(summary(LinearModel_ProdQual), digits = 10)
+
+LinearModel_Ecom = lm(Satisfaction~Ecom)
+print(summary(LinearModel_Ecom), digits = 10)
+
+LinearModel_TechSup = lm(Satisfaction~TechSup)
+print(summary(LinearModel_TechSup), digits = 10)
+
+LinearModel_CompRes = lm(Satisfaction~CompRes)
+print(summary(LinearModel_CompRes), digits = 10)
+
+LinearModel_Advertising = lm(Satisfaction~Advertising)
+print(summary(LinearModel_Advertising), digits = 10)
+
+LinearModel_ProdLine = lm(Satisfaction~ProdLine)
+print(summary(LinearModel_ProdLine), digits = 10)
+
+LinearModel_SalesFImage = lm(Satisfaction~SalesFImage)
+print(summary(LinearModel_SalesFImage), digits = 10)
+
+LinearModel_ComPricing = lm(Satisfaction~ComPricing)
+print(summary(LinearModel_ComPricing), digits = 10)
+
+LinearModel_WartyClaim = lm(Satisfaction~WartyClaim)
+print(summary(LinearModel_WartyClaim), digits = 10)
+
+LinearModel_OrdBilling = lm(Satisfaction~OrdBilling)
+print(summary(LinearModel_OrdBilling), digits = 10)
+
+LinearModel_DelSpeed = lm(Satisfaction~DelSpeed)
+print(summary(LinearModel_DelSpeed), digits = 10)
+```
+
+We can observe that only 3 of the indpendent variable have at last 30% of the explanatory power over the dependent variable Satisfaction. The 3 indpendent variable are - **Delievry Speed, warranty Claim and Complaint Resolution**
+
+Now lets try to run MLR:
+
+```{r}  
+MLRModel_Factor = lm(Satisfaction~., data = myfactordata[,-12])
+summary(MLRModel_Factor)
+```
+
+Adjusted R-squared is 0.7774, so the model seem have the capacity to explain ~78% variations in the Dependent variabel based on the Variation in the Independent Variabel. Also we can see that only 3 of the IV have high confidence interval than others.
+F-statistic of 32.43 at p-value: < 2.2e-16 is good, and implied that our Model is good predictor.
+
+Linear Equation of the Model: 
+
+**Satisfaction = - 0.669 + 0.371*ProdQual - 0.440*Ecom + 0.032*TechSup + 0.167*CompRes - 0.026*Advertising + 0.140ProdLine + 0.806*SalesFImage - 0.038*CompPricing - 0.102*WartyClaim + 0.146*OrdBilling + 0.165*DelSpeed**
+
+Lets also try plotting the actual and predicted satisfaction by the Model
+
+```{r}
+Results = data.frame(myfactordata, fitted.value=fitted(MLRModel_Factor), residual = resid(MLRModel_Factor))
+head(Results)
+
+plot(Results$Satisfaction)
+lines(Results$Satisfaction, col = "red")
+lines(Results$fitted.value, col = "Blue")
+```
+
+We assume in regression that the indipendent variables are not correlated and they are all indpendnet, but we saw earlier that there are correlation between few IVs.
+Lets check the  **Variable Inflation Factor (VIF)** values of the IVs to identify the variable causing multicollinearity issue. 
+Higher the VIF value, higher the issue.
+
+```{r}
+library(caret)
+library(car)
+vif(MLRModel_Factor)
+```
+
+It is apparent that **Delivery Speed** and **Complaint Resolution** are the IVs creating more multicollinearity issue.
+
+As it is evident that there is multicollinearity issue with the IVs, lets try to perform **Factor Analysis with PCA** and group the IVs which are closely correlated. And use the Newly created Fators to build another model and check its validity.
+To start with PCA, lets calculate the **Eigen Value** to determine number of factors.
+
+**Calculating Eigen Value**
+
+```{r}
+ev = eigen(cor(myfactordata[,-12]))
+ev
+EigenValue=ev$values
+EigenValue
+```
+
+Lets plot the **Scree plot** and apply kaiyer rule to choose the number of factors.
+
+**Scree Plot**
+
+```{r}
+Factor=c(1:11)
+Factor
+Scree=data.frame(Factor,EigenValue)
+plot(Scree,main="Scree Plot", col="Blue",ylim=c(0,4))
+lines(Scree,col="Red")
+```
+
+There are 4 eigen values above 1 and others are flattend and are below 1, so as per **Kaiser rule** lets go with 4 Fatcors for PCA.
+
+**Running UnRotated PCA**
+
+```{r}
+library(psych)
+Unrotate=principal(myfactordata[,-12], nfactors=4, rotate="none")
+print(Unrotate,digits=3)
+UnrotatedProfile=plot(Unrotate,row.names(Unrotate$loadings))
+```
+
+Unrotated output of PCA does not help us group the IVs correctly, so lets ge the rotated PCA loadings to determin the IVs grouping
+
+**Running UnRotated PCA**
+
+```{r}
+Rotate=principal(myfactordata[,-12],nfactors=4,rotate="varimax")
+print(Rotate,digits=3)
+RotatedProfile=plot(Rotate,row.names(Rotate$loadings),cex=1.0)
+```
+
+Lets use fa fucntion to perfom PCA again just to leverage its capablity to draw the grouping of IVs in each PCA
+
+**Grouping of IVs**
+
+```{r}
+Rotate1=fa(myfactordata[,-12],nfactors=4,rotate="varimax")
+fa.diagram(Rotate1)
+```
+
+Lets check if the new factors are significat enough?
+
+```{r}
+RC1_MLR_Data = cbind(myfactordata[,c(4,10,11)],Rotate$scores[,1])
+head(RC1_MLR_Data)
+RC1_MLR_Data_lm = lm(Rotate$scores[, 1]~., data = RC1_MLR_Data[,-4])
+summary(RC1_MLR_Data_lm)
+
+RC2_MLR_Data = cbind(myfactordata[,c(2,5,7)],Rotate$scores[,2])
+head(RC2_MLR_Data)
+RC2_MLR_Data_lm = lm(Rotate$scores[, 2]~., data = RC2_MLR_Data[,-4])
+summary(RC2_MLR_Data_lm)
+
+RC3_MLR_Data = cbind(myfactordata[,c(3,9)],Rotate$scores[,3])
+head(RC3_MLR_Data)
+RC3_MLR_Data_lm = lm(Rotate$scores[, 3]~., data = RC3_MLR_Data[,-3])
+summary(RC3_MLR_Data_lm)
+
+RC4_MLR_Data = cbind(myfactordata[,c(1,6,8)],Rotate$scores[,4])
+head(RC4_MLR_Data)
+RC4_MLR_Data_lm = lm(Rotate$scores[, 2]~., data = RC4_MLR_Data[,-4])
+summary(RC4_MLR_Data_lm)
+
+```
+
+Except RC4, all other groupings are typically have more than **95%** R-Squared value and P-Values are also highly significant.
+So the Groupings have comeout really well.
+
+
+Next lets build the new dataset with the fators and the DV - Satisfaction.
+
+```{r}
+Rotate$scores
+PCA_MLR_Data = cbind(myfactordata[12], Rotate$scores)
+head(PCA_MLR_Data)
+```
+
+**Naming the Factored Groups**
+
+```{r}
+names(PCA_MLR_Data) <- c("Satisfaction", "Sales", "Brand_Name",
+                    "Support", "Prod_Segment")
+head(PCA_MLR_Data)
+
+PCA_MLR_Data_lm = lm(Satisfaction ~ ., data = PCA_MLR_Data[,-1])
+summary(PCA_MLR_Data_lm)
+```
+
+**ADD a TABLE EXPLAINING THE GROUPS**
+
+
+**Support** Factor is having low significance when commpared to other Factors, so let try to remove it and check if the model improves.
+
+```{r}
+PCA_MLR_Data_lm1 = lm(Satisfaction ~ Sales+Brand_Name+Prod_Segment, data = PCA_MLR_Data[,-1])
+summary(PCA_MLR_Data_lm1)
+```
+
+Unfortunatly, we dont see any improvement in the model. 
+
+**Conclusion:**
+For the Factored model R-Squared value is only 66% and it is lesser than the initial Model, so it is fair to use the Original Model for Regression/Prediction rather than the Factored Model. Howevere for knowing the explanatory power of each variable and to identify the underlying factor of IVs it is required to run PCA.
